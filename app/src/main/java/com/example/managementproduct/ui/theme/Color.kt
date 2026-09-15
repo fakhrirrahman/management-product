@@ -2,10 +2,15 @@ package com.example.managementproduct.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val BgPrimary = Color(0xFFFAF7F0)
+val CardSurface = Color(0xFFFFFFFF)
+val TextPrimary = Color(0xFF1F2A24)
+val TextSecondary = Color(0xFF66766C)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val Primary = Color(0xFF2F6844)
+val PrimaryDark = Color(0xFF1F4D31)
+val PrimarySoft = Color(0xFFE4EEE6)
+
+val AmberAccent = Color(0xFFE8A33D)
+val Danger = Color(0xFFC1443D)
+val BorderThin = Color(0xFFE7E1D3)

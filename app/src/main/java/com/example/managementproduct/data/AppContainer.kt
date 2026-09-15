@@ -3,13 +3,13 @@ package com.example.managementproduct.data
 import android.content.Context
 import androidx.room.Room
 import com.example.managementproduct.data.local.AppDatabase
-import com.example.managementproduct.data.repository.ProductRepository
+import com.example.managementproduct.data.repository.KiosRepository
 
 /**
  * Dependency Injection container at the application level.
  */
 interface AppContainer {
-    val productRepository: ProductRepository
+    val kiosRepository: KiosRepository
 }
 
 /**
@@ -24,10 +24,12 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
             context,
             AppDatabase::class.java,
             "management_product.db"
-        ).build()
+        ).fallbackToDestructiveMigration()
+         .build()
     }
 
-    override val productRepository: ProductRepository by lazy {
-        ProductRepository(database.productDao())
+    override val kiosRepository: KiosRepository by lazy {
+        KiosRepository(database)
     }
 }
+
