@@ -38,10 +38,14 @@ class LaporanViewModel(
         loadReport()
     }
 
+    private var reportJob: kotlinx.coroutines.Job? = null
+
     private fun loadReport() {
-        viewModelScope.launch {
-            val report = repository.getProfitReport(_selectedRange.value)
-            _profitReport.value = report
+        reportJob?.cancel()
+        reportJob = viewModelScope.launch {
+            repository.getProfitReport(_selectedRange.value).collect { report ->
+                _profitReport.value = report
+            }
         }
     }
 

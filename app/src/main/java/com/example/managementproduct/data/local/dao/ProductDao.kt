@@ -28,4 +28,7 @@ interface ProductDao {
 
     @Delete
     suspend fun deleteProduct(product: ProductEntity)
+
+    @Query("SELECT * FROM products WHERE barcode = :barcode LIMIT 1")
+    suspend fun getProductByBarcode(barcode: String): ProductEntity?
 }

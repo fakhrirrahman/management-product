@@ -40,7 +40,7 @@ class InventarisViewModel(
         _searchQuery.value = query
     }
 
-    fun addProduct(name: String, category: String, purchasePrice: Long, sellingPrice: Long, initialStock: Int, onSuccess: () -> Unit) {
+    fun addProduct(name: String, category: String, purchasePrice: Long, sellingPrice: Long, initialStock: Int, barcode: String?, onSuccess: () -> Unit) {
         viewModelScope.launch {
             repository.insertProduct(
                 ProductEntity(
@@ -48,7 +48,8 @@ class InventarisViewModel(
                     category = category,
                     purchasePrice = purchasePrice,
                     sellingPrice = sellingPrice,
-                    stock = initialStock
+                    stock = initialStock,
+                    barcode = barcode
                 )
             )
             onSuccess()

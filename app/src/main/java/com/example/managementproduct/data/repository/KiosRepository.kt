@@ -34,6 +34,8 @@ class KiosRepository(
     suspend fun deleteProduct(product: ProductEntity) = productDao.deleteProduct(product)
 
     // 2. Transaksi Barang Masuk (Restock)
+    suspend fun getProductByBarcode(barcode: String): ProductEntity? = productDao.getProductByBarcode(barcode)
+
     suspend fun restock(productId: Int, quantity: Int, purchasePricePerItem: Long) {
         if (quantity <= 0) throw IllegalArgumentException("Quantity must be greater than 0")
         
@@ -92,84 +94,95 @@ class KiosRepository(
     }
 
     // 4. Laporan Keuntungan
-    suspend fun getProfitReport(range: ReportRange): ProfitReport {
+    fun getProfitReport(range: ReportRange): Flow<ProfitReport> {
         val (startDate, endDate) = getStartAndEndDate(range)
         
-        // Ambil semua transaksi KELUAR dalam rentang tanggal (first() mengambil data satu kali dari Flow)
-        val transactionsFlow = transactionDao.getTransactionsBetween(startDate, endDate)
-        val allTransactions = transactionsFlow.first()
-        val outTransactions = allTransactions.filter { it.transaction.type == "KELUAR" }
+        return transactionDao.getTransactionsBetween(startDate, endDate).map { allTransactions ->
+            val outTransactions = allTransactions.filter { it.transaction.type == "KELUAR" }
 
-        var totalPendapatan = 0L
-        var totalModalTerjual = 0L
+            var totalPendapatan = 0L
+            var totalModalTerjual = 0L
 
-        val productSalesMap = mutableMapOf<String, TopSellingItemBuilder>()
-        val dailyProfitMap = mutableMapOf<String, Long>()
-        val dateFormat = SimpleDateFormat("dd MMM", Locale("in", "ID"))
+            val productSalesMap = mutableMapOf<String, TopSellingItemBuilder>()
+            val dailyProfitMap = mutableMapOf<String, Long>()
+            val dateFormat = java.text.SimpleDateFormat("dd MMM", java.util.Locale.forLanguageTag("id-ID"))
 
-        for (t in outTransactions) {
-            val trans = t.transaction
-            val productName = t.product?.name ?: "Barang Terhapus"
-            
-            val revenue = trans.quantity * trans.pricePerItem
-            val cost = trans.quantity * trans.costPerItem
-            val profit = revenue - cost
-            
-            totalPendapatan += revenue
-            totalModalTerjual += cost
+            for (t in outTransactions) {
+                val trans = t.transaction
+                val productName = t.product?.name ?: "Barang Terhapus"
+                
+                val revenue = trans.quantity * trans.pricePerItem
+                val cost = trans.quantity * trans.costPerItem
+                val profit = revenue - cost
+                
+                totalPendapatan += revenue
+                totalModalTerjual += cost
 
-            // Hitung untuk top selling
-            val builder = productSalesMap.getOrPut(productName) { TopSellingItemBuilder(productName, 0, 0L) }
-            builder.quantity += trans.quantity
-            builder.profit += profit
+                // Hitung untuk top selling
+                val builder = productSalesMap.getOrPut(productName) { TopSellingItemBuilder(productName, 0, 0L) }
+                builder.quantity += trans.quantity
+                builder.profit += profit
 
-            // Hitung untuk daily profit trend
-            val dateStr = dateFormat.format(Date(trans.date))
-            dailyProfitMap[dateStr] = dailyProfitMap.getOrDefault(dateStr, 0L) + profit
+                // Hitung untuk daily profit trend
+                val dateStr = dateFormat.format(Date(trans.date))
+                dailyProfitMap[dateStr] = dailyProfitMap.getOrDefault(dateStr, 0L) + profit
+            }
+
+            val labaBersih = totalPendapatan - totalModalTerjual
+
+            val topSelling = productSalesMap.values
+                .sortedByDescending { it.quantity }
+                .take(3)
+                .map { TopSellingItem(it.productName, it.quantity, it.profit) }
+
+            // Generate 7 hari terakhir agar harinya urut, walau tidak ada transaksi isinya 0
+            val trendLaba = generateLast7Days(dailyProfitMap, dateFormat)
+
+            ProfitReport(
+                pendapatan = totalPendapatan,
+                modalTerjual = totalModalTerjual,
+                labaBersih = labaBersih,
+                trendLaba = trendLaba,
+                topSelling = topSelling
+            )
         }
-
-        val labaBersih = totalPendapatan - totalModalTerjual
-
-        val topSelling = productSalesMap.values
-            .sortedByDescending { it.quantity }
-            .take(3)
-            .map { TopSellingItem(it.productName, it.quantity, it.profit) }
-
-        // Generate 7 hari terakhir agar harinya urut, walau tidak ada transaksi isinya 0
-        val trendLaba = generateLast7Days(dailyProfitMap, dateFormat)
-
-        return ProfitReport(
-            pendapatan = totalPendapatan,
-            modalTerjual = totalModalTerjual,
-            labaBersih = labaBersih,
-            trendLaba = trendLaba,
-            topSelling = topSelling
-        )
     }
 
     private fun getStartAndEndDate(range: ReportRange): Pair<Long, Long> {
-        val calendar = Calendar.getInstance()
-        val endDate = System.currentTimeMillis()
+        val startCalendar = Calendar.getInstance()
+        val endCalendar = Calendar.getInstance()
         
         when (range) {
             ReportRange.HARI_INI -> {
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
+                startCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                startCalendar.set(Calendar.MINUTE, 0)
+                startCalendar.set(Calendar.SECOND, 0)
+                startCalendar.set(Calendar.MILLISECOND, 0)
+                
+                endCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                endCalendar.set(Calendar.MINUTE, 59)
+                endCalendar.set(Calendar.SECOND, 59)
+                endCalendar.set(Calendar.MILLISECOND, 999)
             }
             ReportRange.BULAN_INI -> {
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
+                startCalendar.set(Calendar.DAY_OF_MONTH, 1)
+                startCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                startCalendar.set(Calendar.MINUTE, 0)
+                startCalendar.set(Calendar.SECOND, 0)
+                startCalendar.set(Calendar.MILLISECOND, 0)
+                
+                endCalendar.set(Calendar.DAY_OF_MONTH, endCalendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                endCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                endCalendar.set(Calendar.MINUTE, 59)
+                endCalendar.set(Calendar.SECOND, 59)
+                endCalendar.set(Calendar.MILLISECOND, 999)
             }
             ReportRange.SEMUA -> {
-                calendar.timeInMillis = 0L // Sejak awal waktu
+                startCalendar.timeInMillis = 0L // Sejak awal waktu
+                endCalendar.timeInMillis = Long.MAX_VALUE // Sampai akhir zaman
             }
         }
-        return Pair(calendar.timeInMillis, endDate)
+        return Pair(startCalendar.timeInMillis, endCalendar.timeInMillis)
     }
 
     private fun generateLast7Days(dailyProfitMap: Map<String, Long>, format: SimpleDateFormat): List<DailyProfit> {

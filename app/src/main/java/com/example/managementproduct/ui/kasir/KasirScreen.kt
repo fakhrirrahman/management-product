@@ -13,7 +13,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +43,25 @@ fun KasirScreen(
     
     var showBottomSheet by remember { mutableStateOf(false) }
     
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    val scanLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = com.journeyapps.barcodescanner.ScanContract(),
+        onResult = { result ->
+            if (result.contents != null) {
+                viewModel.scanToCart(result.contents) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Barang tidak ditemukan di Inventaris")
+                    }
+                }
+            }
+        }
+    )
+    
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column(
                 modifier = Modifier
@@ -102,21 +122,43 @@ fun KasirScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             // Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.onSearchQueryChanged(it) },
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Cari barang...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Cari barang...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    )
                 )
-            )
+                
+                IconButton(
+                    onClick = {
+                        val options = com.journeyapps.barcodescanner.ScanOptions()
+                        options.setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.ALL_CODE_TYPES)
+                        options.setPrompt("Arahkan ke Barcode")
+                        options.setBeepEnabled(true)
+                        options.setOrientationLocked(false)
+                        scanLauncher.launch(options)
+                    },
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp))
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "Scan Barcode", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
 
             // Categories
             

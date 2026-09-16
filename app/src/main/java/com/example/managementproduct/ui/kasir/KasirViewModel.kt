@@ -108,6 +108,17 @@ class KasirViewModel(
         }
     }
 
+    fun scanToCart(barcode: String, onNotFound: () -> Unit) {
+        viewModelScope.launch {
+            val product = repository.getProductByBarcode(barcode)
+            if (product != null) {
+                addToCart(product)
+            } else {
+                onNotFound()
+            }
+        }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
