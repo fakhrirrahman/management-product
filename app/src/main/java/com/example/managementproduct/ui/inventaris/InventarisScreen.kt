@@ -11,11 +11,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -141,8 +142,8 @@ fun InventarisScreen(
     if (showAddProductSheet) {
         ModalBottomSheet(onDismissRequest = { showAddProductSheet = false }, containerColor = MaterialTheme.colorScheme.surface) {
             AddProductSheet(
-                onConfirm = { name, category, purchasePrice, sellingPrice, stock ->
-                    viewModel.addProduct(name, category, purchasePrice, sellingPrice, stock) {
+                onConfirm = { name, category, purchasePrice, sellingPrice, stock, barcode ->
+                    viewModel.addProduct(name, category, purchasePrice, sellingPrice, stock, barcode) {
                         showAddProductSheet = false
                     }
                 },
@@ -312,7 +313,7 @@ fun RestockSheet(
 
 @Composable
 fun AddProductSheet(
-    onConfirm: (String, String, Long, Long, Int) -> Unit,
+    onConfirm: (String, String, Long, Long, Int, String?) -> Unit,
     onCancel: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
@@ -320,8 +321,20 @@ fun AddProductSheet(
     var purchasePrice by remember { mutableStateOf("") }
     var sellingPrice by remember { mutableStateOf("") }
     var stock by remember { mutableStateOf("") }
+    var barcode by remember { mutableStateOf<String?>(null) }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val categories = listOf("Makanan", "Minuman", "Sembako", "Rokok", "Lainnya")
+    
+    val scanLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = com.journeyapps.barcodescanner.ScanContract(),
+        onResult = { result ->
+            if (result.contents != null) {
+                barcode = result.contents
+            }
+        }
+    )
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text("Barang Baru", fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -352,9 +365,31 @@ fun AddProductSheet(
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(value = stock, onValueChange = { stock = it }, label = { Text("Stok Awal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
         
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = barcode ?: "",
+                onValueChange = { barcode = it },
+                label = { Text("Barcode (Opsional)") },
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = {
+                    val options = com.journeyapps.barcodescanner.ScanOptions()
+                    options.setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.ALL_CODE_TYPES)
+                    options.setPrompt("Arahkan ke Barcode")
+                    options.setBeepEnabled(true)
+                    options.setOrientationLocked(false)
+                    scanLauncher.launch(options)
+                },
+                modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp))
+            ) {
+                Icon(androidx.compose.material.icons.Icons.Default.CameraAlt, contentDescription = "Scan", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        }
+        
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = { onConfirm(name, category, purchasePrice.toLongOrNull() ?: 0, sellingPrice.toLongOrNull() ?: 0, stock.toIntOrNull() ?: 0) },
+            onClick = { onConfirm(name, category, purchasePrice.toLongOrNull() ?: 0, sellingPrice.toLongOrNull() ?: 0, stock.toIntOrNull() ?: 0, barcode) },
             modifier = Modifier.fillMaxWidth(),
             enabled = name.isNotBlank() && purchasePrice.isNotBlank() && sellingPrice.isNotBlank()
         ) {
@@ -400,7 +435,7 @@ fun RestockSheetPreview() {
 fun AddProductSheetPreview() {
     ManagementProductTheme {
         AddProductSheet(
-            onConfirm = { _, _, _, _, _ -> },
+            onConfirm = { _, _, _, _, _, _ -> },
             onCancel = {}
         )
     }
@@ -417,10 +452,21 @@ fun EditProductSheet(
     var category by remember { mutableStateOf(product.category) }
     var purchasePrice by remember { mutableStateOf(product.purchasePrice.toString()) }
     var sellingPrice by remember { mutableStateOf(product.sellingPrice.toString()) }
+    var barcode by remember { mutableStateOf(product.barcode) }
     
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val categories = listOf("Makanan", "Minuman", "Sembako", "Rokok", "Lainnya")
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    val scanLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = com.journeyapps.barcodescanner.ScanContract(),
+        onResult = { result ->
+            if (result.contents != null) {
+                barcode = result.contents
+            }
+        }
+    )
 
     if (showDeleteConfirm) {
         AlertDialog(
@@ -479,6 +525,28 @@ fun EditProductSheet(
             OutlinedTextField(value = sellingPrice, onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) sellingPrice = it }, label = { Text("Harga Jual") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
         }
         
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = barcode ?: "",
+                onValueChange = { barcode = it },
+                label = { Text("Barcode (Opsional)") },
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = {
+                    val options = com.journeyapps.barcodescanner.ScanOptions()
+                    options.setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.ALL_CODE_TYPES)
+                    options.setPrompt("Arahkan ke Barcode")
+                    options.setBeepEnabled(true)
+                    options.setOrientationLocked(false)
+                    scanLauncher.launch(options)
+                },
+                modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp))
+            ) {
+                Icon(androidx.compose.material.icons.Icons.Default.CameraAlt, contentDescription = "Scan", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        }
+        
         Spacer(modifier = Modifier.height(24.dp))
         Button(
             onClick = { 
@@ -486,7 +554,8 @@ fun EditProductSheet(
                     name = name,
                     category = category,
                     purchasePrice = purchasePrice.toLongOrNull() ?: 0,
-                    sellingPrice = sellingPrice.toLongOrNull() ?: 0
+                    sellingPrice = sellingPrice.toLongOrNull() ?: 0,
+                    barcode = barcode
                 )
                 onUpdate(updatedProduct) 
             },
