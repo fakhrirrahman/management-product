@@ -1,5 +1,6 @@
 package com.example.managementproduct.ui.inventaris
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,10 +24,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.managementproduct.data.local.entity.ProductEntity
+import com.example.managementproduct.ui.theme.ManagementProductTheme
 import com.example.managementproduct.util.formatRupiah
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +42,7 @@ fun InventarisScreen(
     
     var showRestockSheet by remember { mutableStateOf<ProductEntity?>(null) }
     var showAddProductSheet by remember { mutableStateOf(false) }
+    var showEditProductSheet by remember { mutableStateOf<ProductEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -90,7 +96,7 @@ fun InventarisScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add")
                     Spacer(modifier = Modifier.width(8.dp))
@@ -106,20 +112,21 @@ fun InventarisScreen(
                 items(products) { product ->
                     InventoryItemCard(
                         product = product,
-                        onRestockClick = { showRestockSheet = product }
+                        onRestockClick = { showRestockSheet = product },
+                        onEditClick = { showEditProductSheet = product }
                     )
                 }
             }
         }
     }
 
-    if (showRestockSheet != null) {
+    showRestockSheet?.let { restockProduct ->
         ModalBottomSheet(onDismissRequest = { showRestockSheet = null }, containerColor = MaterialTheme.colorScheme.surface) {
             RestockSheet(
-                product = showRestockSheet!!,
+                product = restockProduct,
                 onConfirm = { qty, price ->
                     viewModel.restock(
-                        productId = showRestockSheet!!.id,
+                        productId = restockProduct.id,
                         quantity = qty,
                         purchasePricePerItem = price,
                         onSuccess = { showRestockSheet = null },
@@ -143,12 +150,32 @@ fun InventarisScreen(
             )
         }
     }
+
+    showEditProductSheet?.let { editProduct ->
+        ModalBottomSheet(onDismissRequest = { showEditProductSheet = null }, containerColor = MaterialTheme.colorScheme.surface) {
+            EditProductSheet(
+                product = editProduct,
+                onUpdate = { updatedProduct ->
+                    viewModel.updateProduct(updatedProduct) {
+                        showEditProductSheet = null
+                    }
+                },
+                onDelete = {
+                    viewModel.deleteProduct(editProduct) {
+                        showEditProductSheet = null
+                    }
+                },
+                onCancel = { showEditProductSheet = null }
+            )
+        }
+    }
 }
 
 @Composable
 fun InventoryItemCard(
     product: ProductEntity,
-    onRestockClick: () -> Unit
+    onRestockClick: () -> Unit,
+    onEditClick: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -205,11 +232,19 @@ fun InventoryItemCard(
                 }
             }
             
-            Button(
-                onClick = onRestockClick,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onBackground)
-            ) {
-                Text("+ Stok")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onEditClick) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                }
+                Button(
+                    onClick = onRestockClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Text("+ Stok")
+                }
             }
         }
     }
@@ -329,35 +364,149 @@ fun AddProductSheet(
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Preview(showBackground = true)
 @Composable
 fun InventoryItemCardPreview() {
-    com.example.managementproduct.ui.theme.ManagementProductTheme {
+    ManagementProductTheme {
         InventoryItemCard(
-            product = com.example.managementproduct.data.local.entity.ProductEntity(id = 1, name = "Kopi Kapal Api", category = "Minuman", purchasePrice = 1200, sellingPrice = 1500, stock = 20),
-            onRestockClick = {}
+            product = ProductEntity(
+                id = 1,
+                name = "Kopi Kapal Api",
+                category = "Minuman",
+                purchasePrice = 1200,
+                sellingPrice = 1500,
+                stock = 20
+            ),
+            onRestockClick = {},
+            onEditClick = TODO()
         )
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Preview(showBackground = true)
 @Composable
 fun RestockSheetPreview() {
-    com.example.managementproduct.ui.theme.ManagementProductTheme {
+    ManagementProductTheme {
         RestockSheet(
-            product = com.example.managementproduct.data.local.entity.ProductEntity(id = 1, name = "Kopi Kapal Api", category = "Minuman", purchasePrice = 1200, sellingPrice = 1500, stock = 20),
+            product = ProductEntity(id = 1, name = "Kopi Kapal Api", category = "Minuman", purchasePrice = 1200, sellingPrice = 1500, stock = 20),
             onConfirm = { _, _ -> },
             onCancel = {}
         )
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@Preview(showBackground = true)
 @Composable
 fun AddProductSheetPreview() {
-    com.example.managementproduct.ui.theme.ManagementProductTheme {
+    ManagementProductTheme {
         AddProductSheet(
             onConfirm = { _, _, _, _, _ -> },
+            onCancel = {}
+        )
+    }
+}
+
+@Composable
+fun EditProductSheet(
+    product: ProductEntity,
+    onUpdate: (ProductEntity) -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit
+) {
+    var name by remember { mutableStateOf(product.name) }
+    var category by remember { mutableStateOf(product.category) }
+    var purchasePrice by remember { mutableStateOf(product.purchasePrice.toString()) }
+    var sellingPrice by remember { mutableStateOf(product.sellingPrice.toString()) }
+    
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val categories = listOf("Makanan", "Minuman", "Sembako", "Rokok", "Lainnya")
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Hapus Barang?") },
+            text = { Text("Apakah Anda yakin ingin menghapus '${product.name}'? Data barang ini akan hilang.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete()
+                    }
+                ) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Edit Barang", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            IconButton(onClick = { showDeleteConfirm = true }) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Barang") }, modifier = Modifier.fillMaxWidth())
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text("Kategori", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            lazyRowItems(categories) { cat ->
+                FilterChip(
+                    selected = category == cat,
+                    onClick = { category = cat },
+                    label = { Text(cat) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary, selectedLabelColor = Color.White)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = purchasePrice, onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) purchasePrice = it }, label = { Text("Harga Modal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+            OutlinedTextField(value = sellingPrice, onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) sellingPrice = it }, label = { Text("Harga Jual") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = { 
+                val updatedProduct = product.copy(
+                    name = name,
+                    category = category,
+                    purchasePrice = purchasePrice.toLongOrNull() ?: 0,
+                    sellingPrice = sellingPrice.toLongOrNull() ?: 0
+                )
+                onUpdate(updatedProduct) 
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = name.isNotBlank() && purchasePrice.isNotBlank() && sellingPrice.isNotBlank()
+        ) {
+            Text("Simpan Perubahan")
+        }
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun EditProductSheetPreview() {
+    ManagementProductTheme {
+        EditProductSheet(
+            product = ProductEntity(id = 1, name = "Kopi Kapal Api", category = "Minuman", purchasePrice = 1200, sellingPrice = 1500, stock = 20),
+            onUpdate = {},
+            onDelete = {},
             onCancel = {}
         )
     }

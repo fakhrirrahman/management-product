@@ -3,8 +3,9 @@ package com.example.managementproduct.util
 import java.text.NumberFormat
 import java.util.Locale
 
+private val localeID = Locale("in", "ID")
+private val rupiahFormat = NumberFormat.getCurrencyInstance(localeID)
+
 fun Long.formatRupiah(): String {
-    val localeID = Locale("in", "ID")
-    val format = NumberFormat.getCurrencyInstance(localeID)
-    return format.format(this).replace(",00", "")
+    return rupiahFormat.format(this).replace(",00", "")
 }

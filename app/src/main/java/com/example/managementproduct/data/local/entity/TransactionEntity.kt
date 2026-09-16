@@ -11,13 +11,13 @@ import androidx.room.PrimaryKey
         entity = ProductEntity::class,
         parentColumns = ["id"],
         childColumns = ["productId"],
-        onDelete = ForeignKey.RESTRICT
+        onDelete = ForeignKey.SET_NULL
     )],
     indices = [Index("productId")]
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val productId: Int,
+    val productId: Int?,
     val type: String,          // "MASUK" atau "KELUAR"
     val quantity: Int,
     val pricePerItem: Long,    // harga jual/beli saat transaksi terjadi

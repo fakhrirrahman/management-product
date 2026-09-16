@@ -109,7 +109,7 @@ class KiosRepository(
 
         for (t in outTransactions) {
             val trans = t.transaction
-            val productName = t.product.name
+            val productName = t.product?.name ?: "Barang Terhapus"
             
             val revenue = trans.quantity * trans.pricePerItem
             val cost = trans.quantity * trans.costPerItem

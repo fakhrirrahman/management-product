@@ -69,6 +69,19 @@ class InventarisViewModel(
             }
         }
     }
+    fun updateProduct(product: ProductEntity, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.updateProduct(product)
+            onSuccess()
+        }
+    }
+
+    fun deleteProduct(product: ProductEntity, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            repository.deleteProduct(product)
+            onSuccess()
+        }
+    }
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
